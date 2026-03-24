@@ -569,10 +569,10 @@ pub fn get_recurring_payments_paginated(
     env: &Env,
     offset: u64,
     limit: u64,
-) -> Vec<RecurringPayment> {
+) -> Vec<crate::types::RecurringPayment> {
     let cap: u64 = if limit > 50 { 50 } else { limit };
     let ids = get_recurring_payment_ids_paginated(env, offset, cap);
-    let mut payments: Vec<RecurringPayment> = Vec::new(env);
+    let mut payments: Vec<crate::types::RecurringPayment> = Vec::new(env);
 
     for id in ids {
         if let Ok(payment) = get_recurring_payment(env, id) {
