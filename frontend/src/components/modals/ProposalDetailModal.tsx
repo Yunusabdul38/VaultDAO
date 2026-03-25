@@ -99,8 +99,6 @@ const loadSignatures = useCallback(async () => {
         setSigners(updated);
     };
 
-    };
-
     const handleApprove = async () => {
         if (!proposal || !address) return;
         setActionLoading('approve');
@@ -351,8 +349,7 @@ const loadSignatures = useCallback(async () => {
             </div>
         );
     })
-
-                            )}
+)
                         </div>
                     </div>
                 </div>
