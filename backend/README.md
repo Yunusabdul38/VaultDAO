@@ -30,3 +30,19 @@ cp backend/.env.example backend/.env
 
 - `GET /health`
 - `GET /api/v1/status`
+
+## Structure
+
+```text
+src/
+  index.ts                 # bootstrap entrypoint
+  app.ts                   # Express app creation
+  server.ts                # startup lifecycle and listening
+  config/                  # environment loading and configuration
+  modules/
+    health/
+      health.routes.ts
+      health.controller.ts
+      health.service.ts
+      health.service.test.ts
+```

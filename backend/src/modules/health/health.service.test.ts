@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
-import { buildHealthResponse, buildStatusResponse } from "./health.js";
+import { buildHealthPayload, buildStatusPayload } from "./health.service.js";
 
 const mockEnv = {
   port: 8787,
@@ -14,31 +14,19 @@ const mockEnv = {
   websocketUrl: "ws://localhost:8080",
 };
 
-test("builds a healthy service response", () => {
-  const response = buildHealthResponse(mockEnv);
-  const payload = JSON.parse(response.body) as {
-    ok: boolean;
-    service: string;
-    network: string;
-    contractId: string;
-  };
+test("builds a healthy service payload", () => {
+  const payload = buildHealthPayload(mockEnv);
 
-  assert.equal(response.statusCode, 200);
   assert.equal(payload.ok, true);
   assert.equal(payload.service, "vaultdao-backend");
   assert.equal(payload.network, "testnet");
   assert.equal(payload.contractId, "CDTEST");
+  assert.match(payload.timestamp, /^\d{4}-\d{2}-\d{2}T/);
 });
 
-test("builds a status response", () => {
-  const response = buildStatusResponse(mockEnv);
-  const payload = JSON.parse(response.body) as {
-    service: string;
-    environment: string;
-    rpcUrl: string;
-  };
+test("builds a status payload", () => {
+  const payload = buildStatusPayload(mockEnv);
 
-  assert.equal(response.statusCode, 200);
   assert.equal(payload.service, "vaultdao-backend");
   assert.equal(payload.environment, "test");
   assert.match(payload.rpcUrl, /soroban-testnet/);
