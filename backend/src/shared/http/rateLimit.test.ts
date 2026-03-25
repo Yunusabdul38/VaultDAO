@@ -13,7 +13,7 @@ test("Rate Limiter", async (t) => {
     const app = express();
     let callCount = 0;
     app.use(middleware);
-    app.get("/", (req, res) => {
+    app.get("/", (_req, res) => {
       callCount++;
       res.json({ ok: true });
     });
@@ -55,18 +55,18 @@ test("Rate Limiter", async (t) => {
     } as unknown as Request;
 
     const mockRes = {
-      status: function (code: number) {
+      status: function (code: number): any {
         this.statusCode = code;
         return this;
       },
-      set: () => mockRes,
-      json: function (data: any) {
+      set: (): any => mockRes,
+      json: function (data: any): any {
         this.jsonData = data;
         return this;
       },
       statusCode: 0,
       jsonData: null,
-    } as unknown as Response;
+    } as any;
 
     let nextCalled = 0;
     const next = () => {

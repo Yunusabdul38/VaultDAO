@@ -108,6 +108,13 @@ export class RateLimiter {
   reset(): void {
     this.clients.clear();
   }
+
+  /**
+   * Get max requests config
+   */
+  getMaxRequests(): number {
+    return this.config.maxRequests;
+  }
 }
 
 /**
@@ -124,7 +131,7 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
         "Retry-After": Math.ceil(
           (limiter.getResetTime(req) - Date.now()) / 1000
         ).toString(),
-        "X-RateLimit-Limit": limiter.config.maxRequests.toString(),
+        "X-RateLimit-Limit": limiter.getMaxRequests().toString(),
         "X-RateLimit-Remaining": "0",
         "X-RateLimit-Reset": resetTime.toISOString(),
       });
@@ -144,7 +151,7 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
 
     // Set rate limit headers
     res.set({
-      "X-RateLimit-Limit": limiter.config.maxRequests.toString(),
+      "X-RateLimit-Limit": limiter.getMaxRequests().toString(),
       "X-RateLimit-Remaining": limiter.getRemaining(req).toString(),
       "X-RateLimit-Reset": new Date(limiter.getResetTime(req)).toISOString(),
     });

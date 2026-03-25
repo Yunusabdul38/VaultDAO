@@ -142,7 +142,7 @@ export class ProposalActivityAggregator {
       byType: this.initializeTypeCounts(),
     };
 
-    for (const [proposalId, records] of this.proposalCache) {
+    for (const [, records] of this.proposalCache) {
       // Sort to get latest
       const sorted = [...records].sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()

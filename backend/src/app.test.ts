@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApp } from "../../app.js";
+import { createApp } from "./app.js";
 
 const mockEnv = {
   port: 8787,

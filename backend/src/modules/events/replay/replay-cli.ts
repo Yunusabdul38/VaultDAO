@@ -13,11 +13,15 @@ import { loadEnv } from "../../../config/env.js";
  * Parses command line arguments into ReplayOptions.
  */
 export function parseReplayArgs(args: string[]): ReplayOptions {
-  const options: ReplayOptions = {
+  const options = {
     startLedger: 0,
     batchSize: 100,
     dryRun: false,
     verbose: false,
+    endLedger: undefined as number | undefined,
+    contractId: undefined as string | undefined,
+    rpcUrl: undefined as string | undefined,
+    outputDir: undefined as string | undefined,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -124,7 +128,7 @@ export function parseReplayArgs(args: string[]): ReplayOptions {
     throw new Error(`Start ledger (${options.startLedger}) must be less than or equal to end ledger (${options.endLedger}).`);
   }
 
-  return options;
+  return options as ReplayOptions;
 }
 
 /**

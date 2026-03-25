@@ -288,9 +288,9 @@ export class RecurringIndexerService {
   /**
    * Manually sync a single payment by ID.
    */
-  public async syncPayment(paymentId: string): Promise<NormalizedRecurringPayment | null> {
+  public async syncPayment(_paymentId: string): Promise<NormalizedRecurringPayment | null> {
     // TODO: Implement RPC call to get specific payment
-    // const raw = await this.rpcService.getRecurringPayment(paymentId);
+    // const raw = await this.rpcService.getRecurringPayment(_paymentId);
     // if (!raw) return null;
     // const normalized = transformRawRecurringPayment(raw, this.env.contractId, ...);
     // await this.storage.save(normalized);

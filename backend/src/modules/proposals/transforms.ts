@@ -145,7 +145,7 @@ export class ProposalEventTransformer {
   private static transformData(
     event: NormalizedEvent,
     activityType: ProposalActivityType,
-    proposalId: string
+    _proposalId: string
   ): ProposalCreatedActivityData | ProposalApprovedActivityData | ProposalAbstainedActivityData | ProposalReadyActivityData | ProposalExecutedActivityData | ProposalExpiredActivityData | ProposalCancelledActivityData | ProposalRejectedActivityData {
     const rawData = event.data as Record<string, any>;
 

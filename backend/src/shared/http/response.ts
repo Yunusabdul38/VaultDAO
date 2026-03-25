@@ -14,8 +14,6 @@ export interface ApiErrorResponse {
   };
 }
 
-type ApiResponse = ApiSuccessResponse | ApiErrorResponse;
-
 export function success<T = any>(
   res: Response, 
   data: T, 

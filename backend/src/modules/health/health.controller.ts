@@ -1,4 +1,4 @@
-import type { Request, Response, RequestHandler } from "express";
+import type { RequestHandler } from "express";
 
 import type { BackendEnv } from "../../config/env.js";
 import type { BackendRuntime } from "../../server.js";
@@ -7,7 +7,7 @@ import {
   buildReadinessPayload,
   buildStatusPayload,
 } from "./health.service.js";
-import { success, error } from "../../../shared/http/response.js";
+import { success, error } from "../../shared/http/response.js";
 
 export function getHealthController(
   env: BackendEnv,
