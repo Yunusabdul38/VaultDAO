@@ -11494,7 +11494,6 @@ fn test_portfolio_valuation_saturating_arithmetic() {
     // This would fail without oracle mock, but demonstrates the API accepts large amounts
 }
 
-
 fn make_client(
     env: &Env,
 ) -> (
@@ -11592,8 +11591,8 @@ fn test_metadata_entry_limit_enforced() {
     let val = String::from_str(&env, "v");
 
     let keys = [
-        "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13",
-        "k14", "k15", "k16",
+        "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13", "k14",
+        "k15", "k16",
     ];
     for k in keys.iter() {
         client.set_proposal_metadata(&signer1, &proposal_id, &Symbol::new(&env, k), &val);
@@ -11616,8 +11615,8 @@ fn test_metadata_update_existing_key_at_capacity() {
     let val = String::from_str(&env, "v");
 
     let keys = [
-        "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13",
-        "k14", "k15", "k16",
+        "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13", "k14",
+        "k15", "k16",
     ];
     for k in keys.iter() {
         client.set_proposal_metadata(&signer1, &proposal_id, &Symbol::new(&env, k), &val);
