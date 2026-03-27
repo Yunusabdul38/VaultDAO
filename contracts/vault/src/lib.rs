@@ -24,14 +24,14 @@ use soroban_sdk::{contract, contractimpl, Address, Env, IntoVal, Map, String, Sy
 use types::{
     AuditAction, AuditEntry, BatchExecutionResult, BatchOperation, BatchStatus, BatchTransaction,
     CancellationRecord, Comment, Condition, ConditionLogic, Config, CrossVaultConfig,
-    CrossVaultProposal, CrossVaultStatus, DexConfig, Escrow, EscrowStatus, ExecutionFeeEstimate,
-    FundingMilestone, FundingMilestoneStatus, FundingRound, FundingRoundConfig, FundingRoundStatus,
-    GasConfig, InitConfig, InsuranceConfig, ListMode, Milestone, NotificationPreferences,
-    OptionalVaultOracleConfig, Priority, Proposal, ProposalAmendment, ProposalStatus,
-    ProposalTemplate, RecoveryConfig, RecoveryProposal, RecoveryStatus, RecurringPayment,
-    Reputation, RetryConfig, RetryState, Role, RoleAssignment, StreamStatus, StreamingPayment,
-    SwapProposal, SwapResult, TemplateOverrides, ThresholdStrategy, TransferDetails, VaultAction,
-    VaultMetrics, VaultOracleConfig, VaultPriceData, VotingStrategy,
+    CrossVaultProposal, CrossVaultStatus, DexConfig, Dispute, DisputeResolution, DisputeStatus,
+    Escrow, EscrowStatus, ExecutionFeeEstimate, FundingMilestone, FundingMilestoneStatus,
+    FundingRound, FundingRoundConfig, FundingRoundStatus, GasConfig, InitConfig, InsuranceConfig,
+    ListMode, Milestone, NotificationPreferences, OptionalVaultOracleConfig, Priority, Proposal,
+    ProposalAmendment, ProposalStatus, ProposalTemplate, RecoveryConfig, RecoveryProposal,
+    RecoveryStatus, RecurringPayment, Reputation, RetryConfig, RetryState, Role, RoleAssignment,
+    StreamStatus, StreamingPayment, SwapProposal, SwapResult, TemplateOverrides, ThresholdStrategy,
+    TransferDetails, VaultAction, VaultMetrics, VaultOracleConfig, VaultPriceData, VotingStrategy,
 };
 
 /// The main contract structure for VaultDAO.
@@ -92,6 +92,8 @@ mod test;
 mod test_audit;
 #[cfg(test)]
 mod test_cross_vault;
+#[cfg(test)]
+mod test_disputes;
 #[cfg(test)]
 mod test_hooks;
 #[cfg(test)]
@@ -1267,6 +1269,48 @@ impl VaultDAO {
         storage::set_proposal(&env, &proposal);
         storage::remove_from_priority_queue(&env, proposal.priority.clone() as u32, proposal_id);
         storage::extend_instance_ttl(&env);
+
+        // Refund reserved spending capacity
+        storage::refund_spending_limits(&env, proposal.amount);
+
+        // Veto is not punitive — return insurance in full
+        if proposal.insurance_amount > 0 {
+            token::transfer(
+                &env,
+                &proposal.token,
+                &proposal.proposer,
+                proposal.insurance_amount,
+            );
+            events::emit_insurance_returned(
+                &env,
+                proposal_id,
+                &proposal.proposer,
+                proposal.insurance_amount,
+            );
+        }
+
+        // Return stake in full
+        if proposal.stake_amount > 0 {
+            if let Some(mut stake_record) = storage::get_stake_record(&env, proposal_id) {
+                if !stake_record.refunded && !stake_record.slashed {
+                    token::transfer(
+                        &env,
+                        &proposal.token,
+                        &proposal.proposer,
+                        proposal.stake_amount,
+                    );
+                    stake_record.refunded = true;
+                    stake_record.released_at = env.ledger().sequence() as u64;
+                    storage::set_stake_record(&env, &stake_record);
+                    events::emit_stake_refunded(
+                        &env,
+                        proposal_id,
+                        &proposal.proposer,
+                        proposal.stake_amount,
+                    );
+                }
+            }
+        }
 
         events::emit_proposal_vetoed(&env, proposal_id, &vetoer);
 
@@ -3291,6 +3335,7 @@ impl VaultDAO {
         for i in 0..depends_on.len() {
             let dependency_id = depends_on.get(i).unwrap();
 
+            // Direct self-reference
             if dependency_id == proposal_id {
                 return Err(VaultError::InvalidAmount);
             }
@@ -3301,7 +3346,8 @@ impl VaultDAO {
                 return Err(VaultError::ProposalNotFound);
             }
 
-            // If any dependency can reach this proposal ID, adding the edge would form a cycle.
+            // Transitive cycle check: walk the existing dep graph from this
+            // dependency; if it can reach proposal_id, adding this edge forms a cycle.
             let mut visited = Vec::new(env);
             if Self::has_dependency_path(env, dependency_id, proposal_id, &mut visited)? {
                 return Err(VaultError::InvalidAmount);
@@ -4129,8 +4175,9 @@ impl VaultDAO {
             return Err(VaultError::InsufficientBalance);
         }
 
-        // Execute transfer
-        if token::try_transfer(env, &proposal.token, &proposal.recipient, proposal.amount).is_err()
+        // Execute transfer (deduct protocol fee from transfer amount)
+        let transfer_amount = proposal.amount.saturating_sub(fee_amount);
+        if token::try_transfer(env, &proposal.token, &proposal.recipient, transfer_amount).is_err()
         {
             return Err(VaultError::TransferFailed);
         }
@@ -6659,5 +6706,117 @@ impl VaultDAO {
     /// Get the cross-vault proposal metadata for a given proposal ID.
     pub fn get_cross_vault_proposal(env: Env, proposal_id: u64) -> Option<CrossVaultProposal> {
         storage::get_cross_vault_proposal(&env, proposal_id)
+    }
+
+    // ========================================================================
+    // Dispute Resolution
+    // ========================================================================
+
+    /// Raise a dispute against a proposal or escrow.
+    ///
+    /// Only the funder or recipient of the linked escrow (if `escrow_id` is
+    /// provided) may file a dispute. For proposal-only disputes any signer may
+    /// file one.
+    pub fn raise_dispute(
+        env: Env,
+        disputer: Address,
+        proposal_id: u64,
+        escrow_id: Option<u64>,
+        reason: Symbol,
+        evidence: Vec<String>,
+    ) -> Result<u64, VaultError> {
+        disputer.require_auth();
+
+        // Proposal must exist
+        let proposal = storage::get_proposal(&env, proposal_id)?;
+
+        // If linked to an escrow, only funder or recipient may dispute
+        if let Some(eid) = escrow_id {
+            let escrow = storage::get_escrow(&env, eid)?;
+            if disputer != escrow.funder && disputer != escrow.recipient {
+                return Err(VaultError::Unauthorized);
+            }
+        } else {
+            // For proposal-only disputes, require the disputer to be a signer
+            let config = storage::get_config(&env)?;
+            if !config.signers.contains(&disputer) {
+                return Err(VaultError::NotASigner);
+            }
+        }
+
+        // Cannot dispute an already-executed or cancelled proposal
+        if proposal.status == ProposalStatus::Executed
+            || proposal.status == ProposalStatus::Cancelled
+        {
+            return Err(VaultError::ProposalAlreadyExecuted);
+        }
+
+        let dispute_id = storage::increment_dispute_id(&env);
+        let dispute = Dispute {
+            id: dispute_id,
+            proposal_id,
+            disputer: disputer.clone(),
+            reason,
+            evidence,
+            status: DisputeStatus::Filed,
+            resolution: DisputeResolution::Dismissed,
+            arbitrator: disputer.clone(), // placeholder until resolved
+            filed_at: env.ledger().sequence() as u64,
+            resolved_at: 0,
+        };
+
+        storage::set_dispute(&env, &dispute);
+        storage::add_proposal_dispute(&env, proposal_id, dispute_id);
+        storage::extend_instance_ttl(&env);
+
+        events::emit_dispute_raised(&env, dispute_id, proposal_id, &disputer);
+
+        Ok(dispute_id)
+    }
+
+    /// Resolve a dispute. Only an admin may call this.
+    pub fn resolve_dispute(
+        env: Env,
+        admin: Address,
+        dispute_id: u64,
+        resolution: DisputeResolution,
+    ) -> Result<(), VaultError> {
+        admin.require_auth();
+
+        let config = storage::get_config(&env)?;
+        if storage::get_role(&env, &admin) != Role::Admin && !config.signers.contains(&admin) {
+            return Err(VaultError::Unauthorized);
+        }
+
+        let mut dispute = storage::get_dispute(&env, dispute_id)?;
+
+        if dispute.status == DisputeStatus::Resolved || dispute.status == DisputeStatus::Dismissed {
+            return Err(VaultError::ProposalAlreadyExecuted);
+        }
+
+        let resolution_code = resolution.clone() as u32;
+        dispute.status = match resolution {
+            DisputeResolution::Dismissed => DisputeStatus::Dismissed,
+            _ => DisputeStatus::Resolved,
+        };
+        dispute.resolution = resolution;
+        dispute.arbitrator = admin.clone();
+        dispute.resolved_at = env.ledger().sequence() as u64;
+
+        storage::set_dispute(&env, &dispute);
+
+        events::emit_dispute_resolved(&env, dispute_id, &admin, resolution_code);
+
+        Ok(())
+    }
+
+    /// Get a dispute by ID.
+    pub fn get_dispute(env: Env, dispute_id: u64) -> Result<Dispute, VaultError> {
+        storage::get_dispute(&env, dispute_id)
+    }
+
+    /// Get all dispute IDs linked to a proposal.
+    pub fn get_proposal_disputes(env: Env, proposal_id: u64) -> Vec<u64> {
+        storage::get_proposal_disputes(&env, proposal_id)
     }
 }
