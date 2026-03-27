@@ -3276,6 +3276,7 @@ impl VaultDAO {
         for i in 0..depends_on.len() {
             let dependency_id = depends_on.get(i).unwrap();
 
+            // Direct self-reference
             if dependency_id == proposal_id {
                 return Err(VaultError::InvalidAmount);
             }
@@ -3286,7 +3287,8 @@ impl VaultDAO {
                 return Err(VaultError::ProposalNotFound);
             }
 
-            // If any dependency can reach this proposal ID, adding the edge would form a cycle.
+            // Transitive cycle check: walk the existing dep graph from this
+            // dependency; if it can reach proposal_id, adding this edge forms a cycle.
             let mut visited = Vec::new(env);
             if Self::has_dependency_path(env, dependency_id, proposal_id, &mut visited)? {
                 return Err(VaultError::InvalidAmount);
