@@ -1272,6 +1272,48 @@ impl VaultDAO {
         storage::remove_from_priority_queue(&env, proposal.priority.clone() as u32, proposal_id);
         storage::extend_instance_ttl(&env);
 
+        // Refund reserved spending capacity
+        storage::refund_spending_limits(&env, proposal.amount);
+
+        // Veto is not punitive — return insurance in full
+        if proposal.insurance_amount > 0 {
+            token::transfer(
+                &env,
+                &proposal.token,
+                &proposal.proposer,
+                proposal.insurance_amount,
+            );
+            events::emit_insurance_returned(
+                &env,
+                proposal_id,
+                &proposal.proposer,
+                proposal.insurance_amount,
+            );
+        }
+
+        // Return stake in full
+        if proposal.stake_amount > 0 {
+            if let Some(mut stake_record) = storage::get_stake_record(&env, proposal_id) {
+                if !stake_record.refunded && !stake_record.slashed {
+                    token::transfer(
+                        &env,
+                        &proposal.token,
+                        &proposal.proposer,
+                        proposal.stake_amount,
+                    );
+                    stake_record.refunded = true;
+                    stake_record.released_at = env.ledger().sequence() as u64;
+                    storage::set_stake_record(&env, &stake_record);
+                    events::emit_stake_refunded(
+                        &env,
+                        proposal_id,
+                        &proposal.proposer,
+                        proposal.stake_amount,
+                    );
+                }
+            }
+        }
+
         events::emit_proposal_vetoed(&env, proposal_id, &vetoer);
 
         Ok(())
@@ -3295,6 +3337,7 @@ impl VaultDAO {
         for i in 0..depends_on.len() {
             let dependency_id = depends_on.get(i).unwrap();
 
+            // Direct self-reference
             if dependency_id == proposal_id {
                 return Err(VaultError::InvalidAmount);
             }
@@ -3305,7 +3348,8 @@ impl VaultDAO {
                 return Err(VaultError::ProposalNotFound);
             }
 
-            // If any dependency can reach this proposal ID, adding the edge would form a cycle.
+            // Transitive cycle check: walk the existing dep graph from this
+            // dependency; if it can reach proposal_id, adding this edge forms a cycle.
             let mut visited = Vec::new(env);
             if Self::has_dependency_path(env, dependency_id, proposal_id, &mut visited)? {
                 return Err(VaultError::InvalidAmount);
@@ -4145,8 +4189,9 @@ impl VaultDAO {
             return Err(VaultError::InsufficientBalance);
         }
 
-        // Execute transfer
-        if token::try_transfer(env, &proposal.token, &proposal.recipient, proposal.amount).is_err()
+        // Execute transfer (deduct protocol fee from transfer amount)
+        let transfer_amount = proposal.amount.saturating_sub(fee_amount);
+        if token::try_transfer(env, &proposal.token, &proposal.recipient, transfer_amount).is_err()
         {
             return Err(VaultError::TransferFailed);
         }

@@ -16,7 +16,6 @@ fn setup(env: &Env) -> (VaultDAOClient<'static>, Address, Address) {
             signers,
             threshold: 1,
             quorum: 0,
-            quorum_percentage: 0,
             spending_limit: 100_000,
             daily_limit: 500_000,
             weekly_limit: 1_000_000,
