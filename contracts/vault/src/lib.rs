@@ -733,7 +733,11 @@ impl VaultDAO {
                 condition_logic: condition_logic.clone(),
                 created_at: current_ledger,
                 expires_at: calculate_expiration_ledger(&config, &priority, current_ledger),
-                unlock_ledger: 0,
+                unlock_ledger: if transfer.amount >= config.timelock_threshold {
+                    current_ledger + config.timelock_delay
+                } else {
+                    0
+                },
                 execution_time: None,
                 insurance_amount: insurance_per_proposal,
                 stake_amount: 0, // Batch proposals don't require individual stakes
