@@ -8120,7 +8120,10 @@ fn test_rollback_execution_reverses_transfer_and_clears_snapshot() {
         threshold: 1,
         quorum: 0,
         quorum_percentage: 0,
-        velocity_limit: VelocityConfig { limit: 10000, window: 3600 },
+        velocity_limit: VelocityConfig {
+            limit: 10000,
+            window: 3600,
+        },
         spending_limit: 1000,
         daily_limit: 5000,
         weekly_limit: 10000,
@@ -8131,7 +8134,11 @@ fn test_rollback_execution_reverses_transfer_and_clears_snapshot() {
         pre_execution_hooks: soroban_sdk::Vec::new(&env),
         post_execution_hooks: soroban_sdk::Vec::new(&env),
         default_voting_deadline: 0,
-        retry_config: crate::types::RetryConfig { enabled: false, max_retries: 0, initial_backoff_ledgers: 0 },
+        retry_config: crate::types::RetryConfig {
+            enabled: false,
+            max_retries: 0,
+            initial_backoff_ledgers: 0,
+        },
         recovery_config: crate::types::RecoveryConfig::default(&env),
         staking_config: crate::types::StakingConfig::default(),
     };
@@ -8184,7 +8191,10 @@ fn test_rollback_execution_no_snapshot_returns_error() {
         threshold: 1,
         quorum: 0,
         quorum_percentage: 0,
-        velocity_limit: VelocityConfig { limit: 10000, window: 3600 },
+        velocity_limit: VelocityConfig {
+            limit: 10000,
+            window: 3600,
+        },
         spending_limit: 1000,
         daily_limit: 5000,
         weekly_limit: 10000,
@@ -8195,7 +8205,11 @@ fn test_rollback_execution_no_snapshot_returns_error() {
         pre_execution_hooks: soroban_sdk::Vec::new(&env),
         post_execution_hooks: soroban_sdk::Vec::new(&env),
         default_voting_deadline: 0,
-        retry_config: crate::types::RetryConfig { enabled: false, max_retries: 0, initial_backoff_ledgers: 0 },
+        retry_config: crate::types::RetryConfig {
+            enabled: false,
+            max_retries: 0,
+            initial_backoff_ledgers: 0,
+        },
         recovery_config: crate::types::RecoveryConfig::default(&env),
         staking_config: crate::types::StakingConfig::default(),
     };

@@ -5369,7 +5369,11 @@ impl VaultDAO {
     /// Only callable by an admin. Reads the snapshot stored under `proposal_id`,
     /// transfers the recorded amount back from the recipient to the vault, then
     /// clears the snapshot. Returns `SnapshotNotFound` when no snapshot exists.
-    pub fn rollback_execution(env: Env, admin: Address, proposal_id: u64) -> Result<(), VaultError> {
+    pub fn rollback_execution(
+        env: Env,
+        admin: Address,
+        proposal_id: u64,
+    ) -> Result<(), VaultError> {
         admin.require_auth();
 
         if storage::get_role(&env, &admin) != Role::Admin {
