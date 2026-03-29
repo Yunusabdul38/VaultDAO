@@ -80,18 +80,29 @@ export class JobManager {
   /**
    * Stop all registered jobs gracefully.
    * Jobs are stopped in reverse registration order (LIFO).
+   * @param timeoutMs timeout for each job stop in milliseconds (default 5s)
    */
-  public async stopAll(): Promise<void> {
+  public async stopAll(timeoutMs: number = 5000): Promise<void> {
     const jobs = Array.from(this.jobs.values()).reverse();
     const errors: Array<{ job: string; error: string }> = [];
 
     for (const job of jobs) {
       try {
-        await Promise.resolve(job.stop());
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Stop timeout after ${timeoutMs}ms`));
+          }, timeoutMs).unref();
+        });
+
+        await Promise.race([
+          Promise.resolve(job.stop()),
+          timeoutPromise
+        ]);
+        
         this.logger.info("job stopped", { job: job.name });
       } catch (err: unknown) {
         const errorMessage = this.toErrorMessage(err);
-        this.logger.warn("job stop error", {
+        this.logger.warn("job stop error or timeout", {
           job: job.name,
           error: errorMessage,
         });
