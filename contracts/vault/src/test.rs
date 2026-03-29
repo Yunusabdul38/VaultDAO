@@ -1598,7 +1598,7 @@ fn test_attachment_duplicate() {
 
     client.add_attachment(&signer1, &proposal_id, &ipfs_hash);
     let result = client.try_add_attachment(&signer1, &proposal_id, &ipfs_hash);
-    assert_eq!(result.err(), Some(Ok(VaultError::AlreadyApproved)));
+    assert_eq!(result.err(), Some(Ok(VaultError::AttachmentHashInvalid)));
 }
 
 #[test]
@@ -1735,6 +1735,78 @@ fn test_admin_can_add_attachment() {
     let ipfs_hash =
         soroban_sdk::String::from_str(&env, "QmXyZ123456789abcdefghijklmnopqrstuvwxyz123456");
     client.add_attachment(&admin, &proposal_id, &ipfs_hash);
+}
+
+#[test]
+fn test_duplicate_attachment_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(VaultDAO, ());
+    let client = VaultDAOClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let signer1 = Address::generate(&env);
+    let user = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&contract_id, &1000);
+
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin.clone());
+    signers.push_back(signer1.clone());
+
+    let config = InitConfig {
+        signers,
+        threshold: 1,
+        quorum: 0,
+        quorum_percentage: 0,
+        default_voting_deadline: 0,
+        spending_limit: 1000,
+        daily_limit: 5000,
+        weekly_limit: 10000,
+        timelock_threshold: 500,
+        timelock_delay: 100,
+        velocity_limit: VelocityConfig {
+            limit: 100,
+            window: 3600,
+        },
+        threshold_strategy: ThresholdStrategy::Fixed,
+        veto_addresses: Vec::new(&env),
+        retry_config: RetryConfig {
+            enabled: false,
+            max_retries: 0,
+            initial_backoff_ledgers: 0,
+        },
+        recovery_config: crate::types::RecoveryConfig::default(&env),
+        staking_config: types::StakingConfig::default(),
+        pre_execution_hooks: soroban_sdk::Vec::new(&env),
+        post_execution_hooks: soroban_sdk::Vec::new(&env),
+    };
+    client.initialize(&admin, &config);
+
+    let proposal_id = client.propose_transfer(
+        &admin,
+        &user,
+        &token,
+        &100,
+        &Symbol::new(&env, "test"),
+        &Priority::Normal,
+        &Vec::new(&env),
+        &ConditionLogic::And,
+        &0i128,
+    );
+
+    let cid = soroban_sdk::String::from_str(&env, "QmXyZ123456789abcdefghijklmnopqrstuvwxyz123456");
+    client.add_attachment(&admin, &proposal_id, &cid);
+
+    let result = client.try_add_attachment(&admin, &proposal_id, &cid);
+    assert_eq!(
+        result,
+        Err(Ok(VaultError::AttachmentHashInvalid))
+    );
 }
 
 #[test]
