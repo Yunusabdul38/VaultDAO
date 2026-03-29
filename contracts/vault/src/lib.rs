@@ -2997,7 +2997,7 @@ impl VaultDAO {
             return Err(VaultError::TooManyAttachments);
         }
         if attachments.contains(attachment.clone()) {
-            return Err(VaultError::AlreadyApproved); // duplicate attachment
+            return Err(VaultError::AttachmentHashInvalid);
         }
         attachments.push_back(attachment);
         storage::set_attachments(&env, proposal_id, &attachments);
