@@ -161,6 +161,7 @@ export function transformRawRecurringPayment(
  */
 export class RecurringIndexerService {
   private isRunning: boolean = false;
+  private syncInProgress: boolean = false;
   private timer: NodeJS.Timeout | null = null;
   private lastLedgerProcessed: number = 0;
   private consecutiveErrors: number = 0;
@@ -250,6 +251,8 @@ export class RecurringIndexerService {
    * Performs a sync cycle: fetches recurring payments and updates index.
    */
   public async sync(): Promise<void> {
+    this.syncInProgress = true;
+    try {
     // TODO: Implement RPC call to fetch recurring payments
     // const payments = await this.rpcService.getRecurringPayments({
     //   offset: 0,
@@ -271,6 +274,14 @@ export class RecurringIndexerService {
       lastLedger: this.lastLedgerProcessed,
       updatedAt: new Date().toISOString(),
     });
+    } finally {
+      this.syncInProgress = false;
+    }
+  }
+
+  /** Returns true if a sync cycle is currently in progress. */
+  public isSyncing(): boolean {
+    return this.syncInProgress;
   }
 
   /**

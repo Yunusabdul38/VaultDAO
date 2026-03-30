@@ -4,6 +4,7 @@ import {
   getAllRecurringController,
   getRecurringByIdController,
   getDueRecurringController,
+  triggerSyncController,
 } from "./recurring.controller.js";
 
 /**
@@ -17,6 +18,14 @@ export function createRecurringRouter(service: RecurringIndexerService) {
    * Returns all payments that are currently due.
    */
   router.get("/due", getDueRecurringController(service));
+
+  /**
+   * POST /api/v1/recurring/sync
+   * Triggers a manual sync cycle immediately.
+   * Returns { synced: number, durationMs: number }.
+   * Returns 409 if a sync is already running.
+   */
+  router.post("/sync", triggerSyncController(service));
 
   /**
    * GET /api/v1/recurring

@@ -91,3 +91,35 @@ export function getDueRecurringController(
     }
   };
 }
+
+/**
+ * Trigger a manual sync cycle.
+ * Returns { synced: number, durationMs: number }.
+ * Returns 409 if a sync is already in progress.
+ */
+export function triggerSyncController(
+  service: RecurringIndexerService,
+): RequestHandler {
+  return async (_request, response) => {
+    if (service.isSyncing()) {
+      error(response, {
+        message: "Sync already in progress",
+        status: 409,
+        code: ErrorCode.BAD_REQUEST,
+      });
+      return;
+    }
+    try {
+      const start = Date.now();
+      await service.sync();
+      success(response, { synced: service.getStatus().totalPaymentsIndexed, durationMs: Date.now() - start });
+    } catch (err) {
+      error(response, {
+        message: "Sync failed",
+        status: 500,
+        code: ErrorCode.INTERNAL_ERROR,
+        details: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+}
