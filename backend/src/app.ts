@@ -91,12 +91,33 @@ export function createApp(env: BackendEnv, runtime: BackendRuntime) {
     requestIdStorage.run(id, next);
   });
 
-  // Rate limiting middleware
-  const rateLimiter = createRateLimitMiddleware({
-    windowMs: 60 * 1000, // 1 minute
-    maxRequests: 100, // 100 requests per minute
+  // Rate limiting middleware — different limits per endpoint type
+  // Health/readiness probes: 300 req/min (high-frequency monitoring)
+  const healthRateLimiter = createRateLimitMiddleware({
+    windowMs: 60 * 1000,
+    maxRequests: 300,
   });
-  app.use(rateLimiter);
+  app.use("/health", healthRateLimiter);
+  app.use("/ready", healthRateLimiter);
+
+  // Write endpoints (POST/PUT/PATCH/DELETE): 10 req/min
+  const writeRateLimiter = createRateLimitMiddleware({
+    windowMs: 60 * 1000,
+    maxRequests: 10,
+  });
+  // Read endpoints (GET): 100 req/min
+  const readRateLimiter = createRateLimitMiddleware({
+    windowMs: 60 * 1000,
+    maxRequests: 100,
+  });
+  // Apply method-aware rate limiter to all /api/v1 routes
+  app.use("/api/v1", (req: Request, res: Response, next: NextFunction) => {
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+      writeRateLimiter(req, res, next);
+    } else {
+      readRateLimiter(req, res, next);
+    }
+  });
 
   // Request logging middleware (after request ID so requestId is available)
   app.use(createRequestLogger());
