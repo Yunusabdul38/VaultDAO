@@ -72,7 +72,11 @@ const { server, runtime } = startServer(env, notificationQueue);
 const lifecycle = new LifecycleManager(server, 10_000); // 10s shutdown timeout
 
 lifecycle.onShutdown({
-  name: "background-jobs",
+  // "job-manager" hook stops all background jobs (EventPollingService,
+  // RecurringIndexerService, ProposalActivityConsumer) before cache teardown.
+  // Must be registered before lifecycle.initialize() — LifecycleManager
+  // executes hooks in LIFO order so this runs first.
+  name: "job-manager",
   handler: async () => {
     await runtime.jobManager.stopAll();
   },

@@ -131,3 +131,28 @@ test("Readiness Failure", async (t) => {
     });
   });
 });
+
+// Regression guard: GET /api/v1/proposals/stats must return stats, not a 404
+// from /:id shadowing. This test fails if /stats is moved after /:id in the router.
+test("GET /api/v1/proposals/stats route ordering", async (t) => {
+  await t.test("returns 200 with a stats payload — not a 404 from /:id shadowing", async () => {
+    const app = createApp(mockEnv as any, mockRuntime as any);
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, "127.0.0.1", async () => {
+        const address = server.address();
+        const port = (address as any).port;
+
+        try {
+          const response = await fetch(`http://127.0.0.1:${port}/api/v1/proposals/stats`);
+          assert.strictEqual(response.status, 200);
+          const body = await response.json() as any;
+          assert.strictEqual(body.success, true);
+          assert.ok(typeof body.data.totalProposals === "number", "totalProposals should be a number");
+        } finally {
+          server.close(() => resolve(undefined));
+        }
+      });
+    });
+  });
+});

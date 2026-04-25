@@ -23,10 +23,11 @@ import ReadinessWarning from '../../components/ReadinessWarning';
 
 const CopyButton = ({ text }: { text: string }) => (
   <button
-    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(text); }}
+    onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(text); }}
     className="p-1 hover:bg-gray-700 rounded text-gray-400"
+    title="Copy address"
   >
-    <Clock size={14} />
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
   </button>
 );
 
@@ -320,7 +321,7 @@ const Proposals: React.FC = () => {
   }, [selectedToken, tokenBalances]);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6 text-white">
+    <div className="space-y-6 pb-10">
       <div className="max-w-7xl mx-auto">
         <ReadinessWarning />
         {connectionStatus === 'connecting' && (

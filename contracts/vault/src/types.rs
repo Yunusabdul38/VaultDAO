@@ -1373,6 +1373,8 @@ pub struct FundingMilestone {
     pub verified_at: u64,
     /// Address that verified the milestone
     pub verified_by: Option<Address>,
+    /// Rejection reason, if rejected
+    pub rejection_reason: Option<String>,
 }
 
 /// Status of a funding round
@@ -1381,9 +1383,11 @@ pub struct FundingMilestone {
 pub enum FundingRoundStatus {
     /// Round is pending approval
     Pending,
-    /// Round has been approved and is active
+    /// Round has been approved by admin (ready to become active)
+    Approved,
+    /// Round is active — milestones can be submitted and verified
     Active,
-    /// Round has been completed
+    /// Round has been completed (all milestones verified and paid)
     Completed,
     /// Round was cancelled
     Cancelled,
