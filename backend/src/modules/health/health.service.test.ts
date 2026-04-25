@@ -25,6 +25,8 @@ const mockEnv = {
   cursorRetentionDays: 30,
   corsOrigin: ["*"],
   requestBodyLimit: "1mb",
+  cursorStorageType: "file" as const,
+  databasePath: "./test.sqlite",
 };
 
 const mockRuntime = {

@@ -1,4 +1,4 @@
-import { describe, it, before, beforeEach, afterEach } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as fc from "fast-check";
 import type { Request } from "express";
@@ -60,7 +60,7 @@ describe("Requirement 1 – within-limit requests allowed", () => {
       fc.property(
         fc.integer({ min: 1, max: 20 }),
         fc.string(),
-        (maxRequests, ip) => {
+        (maxRequests: number, ip: string) => {
           const localLimiter = new RateLimiter({
             windowMs: WINDOW_MS,
             maxRequests,
@@ -89,7 +89,7 @@ describe("Requirement 2 – over-limit requests blocked", () => {
         fc.integer({ min: 1, max: 20 }),
         fc.string(),
         fc.integer({ min: 1, max: 5 }),
-        (maxRequests, ip, k) => {
+        (maxRequests: number, ip: string, k: number) => {
           const localLimiter = new RateLimiter({
             windowMs: 1000,
             maxRequests,
@@ -124,7 +124,7 @@ describe("Requirement 3 – window reset", () => {
         fc.string(),
         fc.integer({ min: 100, max: 1000 }),
         fc.integer({ min: 0, max: 500 }),
-        (maxRequests, ip, windowMs, extra) => {
+        (maxRequests: number, ip: string, windowMs: number, extra: number) => {
           const localLimiter = new RateLimiter({ windowMs, maxRequests });
           const req = makeReq(ip);
 
@@ -163,10 +163,10 @@ describe("Requirement 4 – getRemaining()", () => {
       fc.property(
         fc
           .integer({ min: 1, max: 20 })
-          .chain((max) =>
+          .chain((max: number) =>
             fc.tuple(fc.constant(max), fc.integer({ min: 0, max: max })),
           ),
-        ([maxRequests, n]) => {
+        ([maxRequests, n]: [number, number]) => {
           const localLimiter = new RateLimiter({
             windowMs: 1000,
             maxRequests,
@@ -189,7 +189,7 @@ describe("Requirement 4 – getRemaining()", () => {
       fc.property(
         fc.integer({ min: 1, max: 20 }),
         fc.integer({ min: 1, max: 5 }),
-        (maxRequests, k) => {
+        (maxRequests: number, k: number) => {
           const localLimiter = new RateLimiter({
             windowMs: 1000,
             maxRequests,
@@ -218,7 +218,7 @@ describe("Requirement 5 – getResetTime()", () => {
       fc.property(
         fc.integer(),
         fc.integer({ min: 100, max: 10000 }),
-        (T, windowMs) => {
+        (T: number, windowMs: number) => {
           const localLimiter = new RateLimiter({ windowMs, maxRequests: 10 });
           const req = makeReq("127.0.0.1");
           mockDate(T);

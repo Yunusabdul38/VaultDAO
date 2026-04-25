@@ -15,6 +15,11 @@ export function createProposalsRouter(aggregator: ProposalActivityAggregator) {
   /**
    * GET /api/v1/proposals/stats
    * Returns aggregated statistics about all proposals.
+   *
+   * WARNING: This route MUST remain registered before GET /:id.
+   * Express matches routes in registration order — if /:id is registered first,
+   * GET /api/v1/proposals/stats is treated as a proposal ID lookup for the
+   * literal string "stats" and returns 404 instead of the stats payload.
    */
   router.get("/stats", getProposalStatsController(aggregator));
 

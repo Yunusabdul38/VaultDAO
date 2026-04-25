@@ -19,20 +19,20 @@ const mockEnv = {
 
 test("WebSocket Server", async (t) => {
   const { server, runtime } = startServer(mockEnv as any);
-  
+
   // Wait for server to be listening
   if (!server.listening) {
     await new Promise((resolve) => server.once("listening", resolve));
   }
-  
+
   const address: any = server.address();
   const wsUrl = `ws://127.0.0.1:${address.port}`;
 
   await t.test("client can connect and receive events", async () => {
     const ws = new WebSocket(wsUrl);
-    
+
     const eventPromise = new Promise<any>((resolve) => {
-      ws.on("message", (data) => {
+      ws.on("message", (data: Buffer) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === "contract_event") {
           resolve(msg.payload);
@@ -62,25 +62,27 @@ test("WebSocket Server", async (t) => {
 
   await t.test("client can subscribe to specific event types", async () => {
     const ws = new WebSocket(wsUrl);
-    
+
     await new Promise((resolve) => ws.on("open", resolve));
 
     // Subscribe to only 'proposal_executed'
-    ws.send(JSON.stringify({
-      type: "subscribe",
-      payload: { eventTypes: ["proposal_executed"] }
-    }));
+    ws.send(
+      JSON.stringify({
+        type: "subscribe",
+        payload: { eventTypes: ["proposal_executed"] },
+      }),
+    );
 
     // Wait for subscription confirmation
     await new Promise<void>((resolve) => {
-      ws.on("message", (data) => {
+      ws.on("message", (data: Buffer) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === "subscribed") resolve();
       });
     });
 
     const receivedEvents: any[] = [];
-    ws.on("message", (data) => {
+    ws.on("message", (data: Buffer) => {
       const msg = JSON.parse(data.toString());
       if (msg.type === "contract_event") {
         receivedEvents.push(msg.payload);

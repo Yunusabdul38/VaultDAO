@@ -40,7 +40,7 @@ export class EventWebSocketServer {
         this.clients.delete(ws);
       });
 
-      ws.on("error", (error) => {
+      ws.on("error", (error: Error) => {
         logger.error("websocket error", { error });
         this.clients.delete(ws);
       });
@@ -72,7 +72,8 @@ export class EventWebSocketServer {
   public broadcastEvent(event: ContractEvent) {
     const eventType = event.topic[0];
     // Simple heuristic for proposal ID if present in topics or value
-    const proposalId = event.topic[1] || (event.value && event.value.proposal_id);
+    const proposalId =
+      event.topic[1] || (event.value && event.value.proposal_id);
 
     const message = JSON.stringify({
       type: "contract_event",
@@ -83,8 +84,10 @@ export class EventWebSocketServer {
     this.clients.forEach((sub, ws) => {
       if (ws.readyState !== WebSocket.OPEN) return;
 
-      const matchesEventType = !sub.eventTypes || sub.eventTypes.includes(eventType);
-      const matchesProposalId = !sub.proposalId || sub.proposalId === proposalId;
+      const matchesEventType =
+        !sub.eventTypes || sub.eventTypes.includes(eventType);
+      const matchesProposalId =
+        !sub.proposalId || sub.proposalId === proposalId;
 
       if (matchesEventType && matchesProposalId) {
         ws.send(message);

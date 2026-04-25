@@ -24,11 +24,18 @@ export class JobManager {
 
   /**
    * Register a job for management.
+   * @param job - The job to register.
+   * @param options.replace - If true, silently replace an existing job with the same name.
+   *   Defaults to false, which throws if a job with the same name is already registered.
+   *   BREAKING CHANGE from previous behaviour (warn + return).
    */
-  public registerJob(job: Job): void {
+  public registerJob(job: Job, options?: { replace?: boolean }): void {
     if (this.jobs.has(job.name)) {
-      this.logger.warn("job already registered", { job: job.name });
-      return;
+      if (options?.replace) {
+        this.jobs.set(job.name, job);
+        return;
+      }
+      throw new Error(`job already registered: "${job.name}"`);
     }
     this.jobs.set(job.name, job);
     this.logger.info("job registered", { job: job.name });
@@ -80,18 +87,29 @@ export class JobManager {
   /**
    * Stop all registered jobs gracefully.
    * Jobs are stopped in reverse registration order (LIFO).
+   * @param timeoutMs timeout for each job stop in milliseconds (default 5s)
    */
-  public async stopAll(): Promise<void> {
+  public async stopAll(timeoutMs: number = 5000): Promise<void> {
     const jobs = Array.from(this.jobs.values()).reverse();
     const errors: Array<{ job: string; error: string }> = [];
 
     for (const job of jobs) {
       try {
-        await Promise.resolve(job.stop());
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Stop timeout after ${timeoutMs}ms`));
+          }, timeoutMs).unref();
+        });
+
+        await Promise.race([
+          Promise.resolve(job.stop()),
+          timeoutPromise
+        ]);
+        
         this.logger.info("job stopped", { job: job.name });
       } catch (err: unknown) {
         const errorMessage = this.toErrorMessage(err);
-        this.logger.warn("job stop error", {
+        this.logger.warn("job stop error or timeout", {
           job: job.name,
           error: errorMessage,
         });
