@@ -96,6 +96,13 @@ jobRunner.start();
 const { server, runtime } = startServer(env, notificationQueue);
 const lifecycle = new LifecycleManager(server, 10_000); // 10s shutdown timeout
 
+registerDuePaymentsJob(
+  jobRunner,
+  env,
+  runtime.recurringIndexerService,
+  notificationQueue,
+);
+
 lifecycle.onShutdown({
   // "job-manager" hook stops all background jobs (EventPollingService,
   // RecurringIndexerService, ProposalActivityConsumer) before cache teardown.
