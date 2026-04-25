@@ -10,6 +10,7 @@ import {
 } from "./modules/realtime/index.js";
 import { InMemoryNotificationQueue } from "./modules/notifications/index.js";
 import { ScheduledJobRunner } from "./modules/jobs/index.js";
+import { registerDuePaymentsJob } from "./modules/jobs/recurring/due-payments-job.js";
 import { randomUUID } from "node:crypto";
 
 function logStartupConfig(env: BackendEnv) {
@@ -70,6 +71,13 @@ jobRunner.start();
 // Start server and integrate with lifecycle management
 const { server, runtime } = startServer(env, notificationQueue);
 const lifecycle = new LifecycleManager(server, 10_000); // 10s shutdown timeout
+
+registerDuePaymentsJob(
+  jobRunner,
+  env,
+  runtime.recurringIndexerService,
+  notificationQueue,
+);
 
 lifecycle.onShutdown({
   // "job-manager" hook stops all background jobs (EventPollingService,

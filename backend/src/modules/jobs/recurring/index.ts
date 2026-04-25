@@ -6,4 +6,5 @@
 
 export * from "./due-check.job.js";
 export * from "./due-payments.job.js";
+export * from "./due-payments-job.js";
 export * from "./cursor-cleanup.job.js";
