@@ -1,6 +1,9 @@
 import { Router } from "express";
 import type { TransactionsService } from "./transactions.service.js";
-import { getTransactionsController } from "./transactions.controller.js";
+import {
+  getTransactionByHashController,
+  getTransactionsController,
+} from "./transactions.controller.js";
 
 /**
  * Creates the transactions router.
@@ -25,6 +28,7 @@ export function createTransactionsRouter(
    * - order:      "asc" | "desc" (optional, default: "desc")
    */
   router.get("/", getTransactionsController(service, defaultContractId));
+  router.get("/:txHash", getTransactionByHashController(service, defaultContractId));
 
   return router;
 }

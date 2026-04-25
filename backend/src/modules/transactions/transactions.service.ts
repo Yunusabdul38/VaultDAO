@@ -1,84 +1,64 @@
 /**
  * TransactionsService
  *
- * Fetches and caches transaction history from the Horizon API
- * for the configured vault contract address.
+ * Provides executed proposal transactions indexed from proposal activity persistence.
  */
 
-import type { HorizonClient } from "../../shared/rpc/horizon.client.js";
-import { InMemoryCacheAdapter } from "../../shared/cache/cache.adapter.js";
+import { ProposalActivityType } from "../proposals/types.js";
+import type { ProposalActivityPersistence } from "../proposals/types.js";
 import type {
   GetTransactionsParams,
   GetTransactionsResult,
-  TransactionRecord,
+  Transaction,
 } from "./transactions.types.js";
 
-/** Cache TTL: 30 seconds — short enough to stay fresh, long enough to absorb bursts. */
-const CACHE_TTL_MS = 30_000;
-
-function buildCacheKey(params: GetTransactionsParams): string {
-  return [
-    params.contractId,
-    params.cursor ?? "",
-    String(params.limit ?? 20),
-    params.order ?? "desc",
-  ].join(":");
-}
-
 export class TransactionsService {
-  private readonly cache = new InMemoryCacheAdapter<GetTransactionsResult>();
-
-  constructor(private readonly horizon: HorizonClient) {}
+  constructor(private readonly persistence: ProposalActivityPersistence) {}
 
   /**
-   * Returns paginated transaction history for the given contract/account.
-   * Results are cached per unique (contractId, cursor, limit, order) combination.
+   * Returns paginated executed transactions for a contract with optional filters.
    */
   async getTransactions(
     params: GetTransactionsParams,
   ): Promise<GetTransactionsResult> {
-    const key = buildCacheKey(params);
-    const cached = this.cache.get(key);
-    if (cached) return cached;
+    const allRecords = await this.persistence.getByContractId(params.contractId);
+    const executed = allRecords
+      .filter((record) => record.type === ProposalActivityType.EXECUTED)
+      .map((record): Transaction => ({
+        proposalId: record.proposalId,
+        contractId: record.metadata.contractId,
+        transactionHash: record.metadata.transactionHash,
+        ledger: record.metadata.ledger,
+        timestamp: record.timestamp,
+        executor: "executor" in record.data ? record.data.executor : "",
+        recipient: "recipient" in record.data ? record.data.recipient : "",
+        token: "token" in record.data ? record.data.token : "",
+        amount: "amount" in record.data ? record.data.amount : "",
+      }))
+      .filter((tx) => (params.token ? tx.token === params.token : true))
+      .filter((tx) => (params.recipient ? tx.recipient === params.recipient : true))
+      .filter((tx) => (params.from !== undefined ? tx.ledger >= params.from : true))
+      .filter((tx) => (params.to !== undefined ? tx.ledger <= params.to : true))
+      .sort((a, b) => b.ledger - a.ledger);
 
-    const page = await this.horizon.getTransactions(
-      params.contractId,
-      params.cursor,
-      params.limit,
-      params.order,
-    );
-
-    const items: TransactionRecord[] = page.records.map((tx) => ({
-      id: tx.id,
-      hash: tx.hash,
-      ledger: tx.ledger,
-      createdAt: tx.created_at,
-      sourceAccount: tx.source_account,
-      feeCharged: tx.fee_charged,
-      operationCount: tx.operation_count,
-      memoType: tx.memo_type,
-      memo: tx.memo,
-      successful: tx.successful,
-      pagingToken: tx.paging_token,
-    }));
-
-    const result: GetTransactionsResult = {
-      items,
-      nextCursor: page.nextCursor,
-      total: items.length,
+    const offset = params.offset ?? 0;
+    const limit = params.limit ?? 20;
+    return {
+      data: executed.slice(offset, offset + limit),
+      total: executed.length,
+      offset,
+      limit,
     };
-
-    this.cache.set(key, result, CACHE_TTL_MS);
-    return result;
   }
 
-  /** Returns cache hit/miss statistics. */
-  cacheStats() {
-    return this.cache.stats();
-  }
-
-  /** Invalidate all cached transaction pages (e.g. after a known new tx). */
-  invalidateCache(): void {
-    this.cache.clear();
+  /**
+   * Gets a single executed transaction by hash.
+   */
+  async getTransactionByHash(
+    contractId: string,
+    txHash: string,
+  ): Promise<Transaction | null> {
+    const result = await this.getTransactions({ contractId, offset: 0, limit: Number.MAX_SAFE_INTEGER });
+    return result.data.find((tx) => tx.transactionHash === txHash) ?? null;
   }
 }
